@@ -45,6 +45,10 @@ int main(void)
 
             continue;
         }
+        int ch;
+
+        while ((ch = getchar()) != '\n' && ch != EOF) {
+        }
 
         switch (choice) {
             case 1:

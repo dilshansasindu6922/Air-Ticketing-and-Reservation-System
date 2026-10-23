@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <errno.h>
 
 #define MAX_FLIGHTS 100
 #define FILE_NAME "flights.txt"
@@ -29,12 +31,184 @@ void searchFlight(void);
 void updateFlight(void);
 void deleteFlight(void);
 
-static void clearInput(void)
+static int findFlightIndex(int id);
+static int readLine(const char *prompt, char *buffer, size_t size);
+static int readInt(const char *prompt, int *value);
+static int readPrice(const char *prompt, float *value);
+static int readText(const char *prompt, char *buffer, size_t size);
+static int validDate(const char *date);
+static int validTime(const char *time);
+static void showFlight(const Flight *f);
+
+/* Read a complete line safely */
+static int readLine(const char *prompt, char *buffer, size_t size)
 {
+    size_t len;
     int ch;
 
-    while ((ch = getchar()) != '\n' && ch != EOF) {
+    printf("%s", prompt);
+    fflush(stdout);
+
+    if (fgets(buffer, (int)size, stdin) == NULL)
+        return 0;
+
+    len = strlen(buffer);
+
+    if (len > 0 && buffer[len - 1] == '\n') {
+        buffer[len - 1] = '\0';
+    } else {
+        while ((ch = getchar()) != '\n' && ch != EOF) {
+        }
+        printf("Input is too long. Please try again.\n");
+        return 0;
     }
+
+    len = strlen(buffer);
+
+    if (len > 0 && buffer[len - 1] == '\r')
+        buffer[len - 1] = '\0';
+
+    return 1;
+}
+
+/* Read an integer without accepting extra characters */
+static int readInt(const char *prompt, int *value)
+{
+    char input[100];
+    char *end;
+    long number;
+
+    if (!readLine(prompt, input, sizeof(input)))
+        return 0;
+
+    errno = 0;
+    number = strtol(input, &end, 10);
+
+    while (isspace((unsigned char)*end))
+        end++;
+
+    if (input[0] == '\0' || end == input ||
+        *end != '\0' || errno == ERANGE ||
+        number < -2147483647L - 1 ||
+        number > 2147483647L) {
+        printf("Invalid number. Please enter an integer.\n");
+        return 0;
+    }
+
+    *value = (int)number;
+    return 1;
+}
+
+/* Read a non-negative ticket price */
+static int readPrice(const char *prompt, float *value)
+{
+    char input[100];
+    char *end;
+    float price;
+
+    if (!readLine(prompt, input, sizeof(input)))
+        return 0;
+
+    errno = 0;
+    price = strtof(input, &end);
+
+    while (isspace((unsigned char)*end))
+        end++;
+
+    if (input[0] == '\0' || end == input ||
+        *end != '\0' || errno == ERANGE ||
+        price < 0.0f || price > 1000000000.0f) {
+        printf("Invalid price. Enter a value from 0 to 1000000000.\n");
+        return 0;
+    }
+
+    *value = price;
+    return 1;
+}
+
+/* Read text and reject empty values and file separators */
+static int readText(const char *prompt, char *buffer, size_t size)
+{
+    size_t i;
+    int nonSpace = 0;
+
+    if (!readLine(prompt, buffer, size))
+        return 0;
+
+    for (i = 0; buffer[i] != '\0'; i++) {
+        if (buffer[i] == '|') {
+            printf("The character '|' is not allowed.\n");
+            return 0;
+        }
+
+        if (!isspace((unsigned char)buffer[i]))
+            nonSpace = 1;
+    }
+
+    if (!nonSpace) {
+        printf("This field cannot be empty.\n");
+        return 0;
+    }
+
+    return 1;
+}
+
+/* Validate YYYY-MM-DD, including leap years */
+static int validDate(const char *date)
+{
+    int year, month, day;
+    int daysInMonth[] = {
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    if (strlen(date) != 10 ||
+        date[4] != '-' || date[7] != '-')
+        return 0;
+
+    if (!isdigit((unsigned char)date[0]) ||
+        !isdigit((unsigned char)date[1]) ||
+        !isdigit((unsigned char)date[2]) ||
+        !isdigit((unsigned char)date[3]) ||
+        !isdigit((unsigned char)date[5]) ||
+        !isdigit((unsigned char)date[6]) ||
+        !isdigit((unsigned char)date[8]) ||
+        !isdigit((unsigned char)date[9]))
+        return 0;
+
+    if (sscanf(date, "%4d-%2d-%2d",
+               &year, &month, &day) != 3)
+        return 0;
+
+    if (year < 1 || month < 1 || month > 12)
+        return 0;
+
+    if (year % 400 == 0 ||
+        (year % 4 == 0 && year % 100 != 0))
+        daysInMonth[1] = 29;
+
+    return day >= 1 && day <= daysInMonth[month - 1];
+}
+
+/* Validate 24-hour HH:MM */
+static int validTime(const char *time)
+{
+    int hour, minute;
+
+    if (strlen(time) != 5 || time[2] != ':')
+        return 0;
+
+    if (!isdigit((unsigned char)time[0]) ||
+        !isdigit((unsigned char)time[1]) ||
+        !isdigit((unsigned char)time[3]) ||
+        !isdigit((unsigned char)time[4]))
+        return 0;
+
+    if (sscanf(time, "%2d:%2d", &hour, &minute) != 2)
+        return 0;
+
+    return hour >= 0 && hour <= 23 &&
+           minute >= 0 && minute <= 59;
 }
 
 static int findFlightIndex(int id)
@@ -42,25 +216,22 @@ static int findFlightIndex(int id)
     int i;
 
     for (i = 0; i < flightCount; i++) {
-        if (flights[i].flightID == id) {
+        if (flights[i].flightID == id)
             return i;
-        }
     }
 
     return -1;
 }
 
-/* Load flight details from file */
+/* Load flights from file */
 void loadFlights(void)
 {
     FILE *file = fopen(FILE_NAME, "r");
 
-    if (file == NULL) {
-        flightCount = 0;
-        return;
-    }
-
     flightCount = 0;
+
+    if (file == NULL)
+        return;
 
     while (flightCount < MAX_FLIGHTS) {
         Flight f;
@@ -78,18 +249,22 @@ void loadFlights(void)
             &f.ticketPrice
         );
 
-        if (result != 8) {
+        if (result != 8)
             break;
-        }
 
-        flights[flightCount] = f;
-        flightCount++;
+        if (f.flightID <= 0 || f.totalSeats <= 0 ||
+            f.ticketPrice < 0.0f ||
+            !validDate(f.date) || !validTime(f.time) ||
+            findFlightIndex(f.flightID) != -1)
+            continue;
+
+        flights[flightCount++] = f;
     }
 
     fclose(file);
 }
 
-/* Save flight details to file */
+/* Save flights to file */
 void saveFlights(void)
 {
     FILE *file = fopen(FILE_NAME, "w");
@@ -101,27 +276,37 @@ void saveFlights(void)
     }
 
     for (i = 0; i < flightCount; i++) {
-        fprintf(
-            file,
-            "%d|%s|%s|%s|%s|%s|%d|%.2f\n",
-            flights[i].flightID,
-            flights[i].airline,
-            flights[i].origin,
-            flights[i].destination,
-            flights[i].date,
-            flights[i].time,
-            flights[i].totalSeats,
-            flights[i].ticketPrice
-        );
+        fprintf(file, "%d|%s|%s|%s|%s|%s|%d|%.2f\n",
+                flights[i].flightID,
+                flights[i].airline,
+                flights[i].origin,
+                flights[i].destination,
+                flights[i].date,
+                flights[i].time,
+                flights[i].totalSeats,
+                flights[i].ticketPrice);
     }
 
     fclose(file);
 }
 
+/* Display one flight */
+static void showFlight(const Flight *f)
+{
+    printf("\nFlight ID    : %d\n", f->flightID);
+    printf("Airline      : %s\n", f->airline);
+    printf("Origin       : %s\n", f->origin);
+    printf("Destination  : %s\n", f->destination);
+    printf("Date         : %s\n", f->date);
+    printf("Time         : %s\n", f->time);
+    printf("Total Seats  : %d\n", f->totalSeats);
+    printf("Ticket Price : %.2f\n", f->ticketPrice);
+}
+
 /* Add a new flight */
 void addFlight(void)
 {
-    Flight f;
+    Flight f = {0};
 
     printf("\n--- ADD NEW FLIGHT ---\n");
 
@@ -130,14 +315,8 @@ void addFlight(void)
         return;
     }
 
-    printf("Enter Flight ID: ");
-
-    if (scanf("%d", &f.flightID) != 1) {
-        printf("Invalid Flight ID.\n");
-        clearInput();
+    if (!readInt("Enter Flight ID: ", &f.flightID))
         return;
-    }
-    clearInput();
 
     if (f.flightID <= 0) {
         printf("Flight ID must be positive.\n");
@@ -149,70 +328,42 @@ void addFlight(void)
         return;
     }
 
-    printf("Enter Airline Name: ");
-    if (scanf(" %49[^\n]", f.airline) != 1) {
-        printf("Invalid airline name.\n");
-        clearInput();
+    if (!readText("Enter Airline Name: ", f.airline,
+                  sizeof(f.airline))) return;
+    if (!readText("Enter Origin: ", f.origin,
+                  sizeof(f.origin))) return;
+    if (!readText("Enter Destination: ", f.destination,
+                  sizeof(f.destination))) return;
+
+    if (!readText("Enter Date (YYYY-MM-DD): ", f.date,
+                  sizeof(f.date))) return;
+    if (!validDate(f.date)) {
+        printf("Invalid date. Example: 2026-12-15\n");
         return;
     }
-    clearInput();
 
-    printf("Enter Origin: ");
-    if (scanf(" %49[^\n]", f.origin) != 1) {
-        printf("Invalid origin.\n");
-        clearInput();
+    if (!readText("Enter Time (HH:MM): ", f.time,
+                  sizeof(f.time))) return;
+    if (!validTime(f.time)) {
+        printf("Invalid time. Use 00:00 to 23:59.\n");
         return;
     }
-    clearInput();
 
-    printf("Enter Destination: ");
-    if (scanf(" %49[^\n]", f.destination) != 1) {
-        printf("Invalid destination.\n");
-        clearInput();
+    if (!readInt("Enter Total Seats: ", &f.totalSeats))
         return;
-    }
-    clearInput();
 
-    printf("Enter Date (YYYY-MM-DD): ");
-    if (scanf("%19s", f.date) != 1) {
-        printf("Invalid date.\n");
-        clearInput();
-        return;
-    }
-    clearInput();
-
-    printf("Enter Time (HH:MM): ");
-    if (scanf("%9s", f.time) != 1) {
-        printf("Invalid time.\n");
-        clearInput();
-        return;
-    }
-    clearInput();
-
-    printf("Enter Total Seats: ");
-    if (scanf("%d", &f.totalSeats) != 1 ||
-        f.totalSeats <= 0) {
+    if (f.totalSeats <= 0) {
         printf("Seats must be greater than zero.\n");
-        clearInput();
         return;
     }
-    clearInput();
 
-    printf("Enter Ticket Price: ");
-    if (scanf("%f", &f.ticketPrice) != 1 ||
-        f.ticketPrice < 0) {
-        printf("Ticket price cannot be negative.\n");
-        clearInput();
+    if (!readPrice("Enter Ticket Price: ", &f.ticketPrice))
         return;
-    }
-    clearInput();
 
-    flights[flightCount] = f;
-    flightCount++;
-
+    flights[flightCount++] = f;
     saveFlights();
 
-    printf("\nFlight added successfully!\n");
+    printf("Flight added successfully!\n");
 }
 
 /* View all flights */
@@ -228,14 +379,7 @@ void viewFlights(void)
     printf("\n========== ALL FLIGHTS ==========\n");
 
     for (i = 0; i < flightCount; i++) {
-        printf("\nFlight ID    : %d\n", flights[i].flightID);
-        printf("Airline      : %s\n", flights[i].airline);
-        printf("Origin       : %s\n", flights[i].origin);
-        printf("Destination  : %s\n", flights[i].destination);
-        printf("Date         : %s\n", flights[i].date);
-        printf("Time         : %s\n", flights[i].time);
-        printf("Total Seats  : %d\n", flights[i].totalSeats);
-        printf("Ticket Price : %.2f\n", flights[i].ticketPrice);
+        showFlight(&flights[i]);
         printf("---------------------------------\n");
     }
 }
@@ -243,17 +387,15 @@ void viewFlights(void)
 /* Search for a flight */
 void searchFlight(void)
 {
-    int id;
-    int index;
+    int id, index;
 
-    printf("\nEnter Flight ID to search: ");
+    if (!readInt("\nEnter Flight ID to search: ", &id))
+        return;
 
-    if (scanf("%d", &id) != 1) {
-        printf("Invalid Flight ID.\n");
-        clearInput();
+    if (id <= 0) {
+        printf("Flight ID must be positive.\n");
         return;
     }
-    clearInput();
 
     index = findFlightIndex(id);
 
@@ -263,31 +405,22 @@ void searchFlight(void)
     }
 
     printf("\n--- FLIGHT FOUND ---\n");
-    printf("Flight ID    : %d\n", flights[index].flightID);
-    printf("Airline      : %s\n", flights[index].airline);
-    printf("Origin       : %s\n", flights[index].origin);
-    printf("Destination  : %s\n", flights[index].destination);
-    printf("Date         : %s\n", flights[index].date);
-    printf("Time         : %s\n", flights[index].time);
-    printf("Total Seats  : %d\n", flights[index].totalSeats);
-    printf("Ticket Price : %.2f\n", flights[index].ticketPrice);
+    showFlight(&flights[index]);
 }
 
 /* Update flight details */
 void updateFlight(void)
 {
-    int id;
-    int index;
+    int id, index;
     Flight updated;
 
-    printf("\nEnter Flight ID to update: ");
+    if (!readInt("\nEnter Flight ID to update: ", &id))
+        return;
 
-    if (scanf("%d", &id) != 1) {
-        printf("Invalid Flight ID.\n");
-        clearInput();
+    if (id <= 0) {
+        printf("Flight ID must be positive.\n");
         return;
     }
-    clearInput();
 
     index = findFlightIndex(id);
 
@@ -299,62 +432,38 @@ void updateFlight(void)
     updated = flights[index];
 
     printf("Enter New Airline Name: ");
-    if (scanf(" %49[^\n]", updated.airline) != 1) {
-        printf("Invalid airline name.\n");
-        clearInput();
+    if (!readText("Enter New Airline Name: ", updated.airline,
+                  sizeof(updated.airline))) return;
+
+    if (!readText("Enter New Origin: ", updated.origin,
+                  sizeof(updated.origin))) return;
+    if (!readText("Enter New Destination: ", updated.destination,
+                  sizeof(updated.destination))) return;
+
+    if (!readText("Enter New Date (YYYY-MM-DD): ", updated.date,
+                  sizeof(updated.date))) return;
+    if (!validDate(updated.date)) {
+        printf("Invalid date. Example: 2026-12-15\n");
         return;
     }
-    clearInput();
 
-    printf("Enter New Origin: ");
-    if (scanf(" %49[^\n]", updated.origin) != 1) {
-        printf("Invalid origin.\n");
-        clearInput();
+    if (!readText("Enter New Time (HH:MM): ", updated.time,
+                  sizeof(updated.time))) return;
+    if (!validTime(updated.time)) {
+        printf("Invalid time. Use 00:00 to 23:59.\n");
         return;
     }
-    clearInput();
 
-    printf("Enter New Destination: ");
-    if (scanf(" %49[^\n]", updated.destination) != 1) {
-        printf("Invalid destination.\n");
-        clearInput();
+    if (!readInt("Enter New Total Seats: ", &updated.totalSeats))
         return;
-    }
-    clearInput();
 
-    printf("Enter New Date (YYYY-MM-DD): ");
-    if (scanf("%19s", updated.date) != 1) {
-        printf("Invalid date.\n");
-        clearInput();
-        return;
-    }
-    clearInput();
-
-    printf("Enter New Time (HH:MM): ");
-    if (scanf("%9s", updated.time) != 1) {
-        printf("Invalid time.\n");
-        clearInput();
-        return;
-    }
-    clearInput();
-
-    printf("Enter New Total Seats: ");
-    if (scanf("%d", &updated.totalSeats) != 1 ||
-        updated.totalSeats <= 0) {
+    if (updated.totalSeats <= 0) {
         printf("Seats must be greater than zero.\n");
-        clearInput();
         return;
     }
-    clearInput();
 
-    printf("Enter New Ticket Price: ");
-    if (scanf("%f", &updated.ticketPrice) != 1 ||
-        updated.ticketPrice < 0) {
-        printf("Invalid ticket price.\n");
-        clearInput();
+    if (!readPrice("Enter New Ticket Price: ", &updated.ticketPrice))
         return;
-    }
-    clearInput();
 
     flights[index] = updated;
     saveFlights();
@@ -365,18 +474,15 @@ void updateFlight(void)
 /* Delete a flight */
 void deleteFlight(void)
 {
-    int id;
-    int index;
-    int i;
+    int id, index, i;
 
-    printf("\nEnter Flight ID to delete: ");
+    if (!readInt("\nEnter Flight ID to delete: ", &id))
+        return;
 
-    if (scanf("%d", &id) != 1) {
-        printf("Invalid Flight ID.\n");
-        clearInput();
+    if (id <= 0) {
+        printf("Flight ID must be positive.\n");
         return;
     }
-    clearInput();
 
     index = findFlightIndex(id);
 
@@ -385,12 +491,10 @@ void deleteFlight(void)
         return;
     }
 
-    for (i = index; i < flightCount - 1; i++) {
+    for (i = index; i < flightCount - 1; i++)
         flights[i] = flights[i + 1];
-    }
 
     flightCount--;
-
     saveFlights();
 
     printf("Flight deleted successfully!\n");
