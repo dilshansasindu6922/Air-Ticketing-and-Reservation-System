@@ -121,37 +121,122 @@ printf("------------------------------------------------------\n");
  
  
  
+ void updatePassenger(){
+        struct Passenger p;
+        char targetID[20];
+        int found = 0;
+
+        FILE *file = fopen("passengers.txt","r");
+        FILE *tempFile = fopen("temp.txt","w");
+
+        if(file == NULL || tempFile == NULL)
+        {
+            printf("\nError opening file for updating!\n");
+            return;
+        };
+        
+        printf("\n-----Update Passenger Details-----\n");
+        printf("Enter passenger ID to update : ");
+        scanf("%s",targetID);
+
+
+        while (fscanf(file, "%s %s %d %s", p.passengerID, p.name, &p.age, p.contactNumber) == 4){
+            if(strcmp(p.passengerID, targetID) == 0){
+                printf("\nPassenger Found! Enter new details:\n");
+
+                printf("Enter New Name: ");
+                scanf(" %[^\n]s",p.name);
+
+                printf("Enter New Age: ");
+                scanf("%d",&p.age);
+
+                printf("Enter New Contact Number: ");
+                scanf("%s",p.contactNumber);
+
+                fprintf(tempFile, "%s %s %d %s\n", p.passengerID, p.name, p.age, p.contactNumber);
+                found = 1;
+            } else {
+                fprintf(tempFile,"%s %s %d %s\n", p.passengerID, p.name, p.age, p.contactNumber);
+            }
+        }
+
+        fclose(file);
+        fclose(tempFile);
+
+        if(found){
+               remove("passengers.txt");
+               rename("temp.txt", "passengers.txt");
+               printf("\nPassenger details updated successfully!\n"); 
+        } else {
+            remove("temp.txt");
+            printf("\nPassenger with ID '%s' not found!\n",targetID);
+        }
+ }
  
  
  
  
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- int main(){
-    registerPassenger();
-    return 0;
+ void deletePassenger(){
+    struct Passenger p;
+    char targetID[20];
+    int found = 0;
+
+    FILE *file = fopen("passengers.txt", "r");
+    FILE *tempFile = fopen("temp.txt","w");
+
+    if (file == NULL || tempFile == NULL){
+        printf("\nError opening file for deletion!\n");
+        return;
+    }
+
+    printf("\n-----Delete Passenger Record-----\n");
+    printf("Enter Passenger ID to delete: ");
+    scanf("%s", targetID);
+
+
+    while (fscanf(file, "%s %s %d %s", p.passengerID, p.name, &p.age, p.contactNumber) == 4){
+            if(strcmp(p.passengerID, targetID) == 0){
+                found = 1;
+            } else {
+                fprintf(tempFile,"%s %s %d %s\n", p.passengerID, p.name, p.age, p.contactNumber);
+            }
+        }
+
+        fclose(file);
+        fclose(tempFile);
+
+
+        if(found){
+               remove("passengers.txt");
+               rename("temp.txt", "passengers.txt");
+               printf("\nPassenger recorded deleted successfully!\n"); 
+        } else {
+            remove("temp.txt");
+            printf("\nPassenger with ID '%s' not found!\n",targetID);
+        }
  }
 
 
 
 
 
+ 
 
+ int isPassengerExist(char * targetID){
+    struct Passenger p;
+    FILE *file = fopen("passengers.txt","r");
 
+    if (file == NULL){
+        return 0;
+    }
+
+    while (fscanf(file,"%s %s %d %s", p.passengerID, p.name, &p.age, p.contactNumber) == 4){
+        if(strcmp(p.passengerID, targetID) == 0){
+            fclose(file);
+            return 1;
+        }
+    }
+
+    fclose(file);
+    return 0;
+ }
