@@ -83,7 +83,8 @@ void registerPassenger() {
 
 void displayPassengers(){
     Passenger p;
-    
+    int count = 0;
+
     FILE *file = fopen("passengers.txt","r");
     
     if (file == NULL){
@@ -98,8 +99,12 @@ void displayPassengers(){
     
     while (fscanf(file, "%s %s %d %s",p.passengerID, p.name, &p.age, p.contactNumber) == 4){
         printf("%-15s %-20s %-5d %-15s\n", p.passengerID, p.name, p.age, p.contactNumber);
+        count++;
     }
-
+    if (!count) 
+    {
+        printf("No passenger records found.\n");
+    }
 
 fclose(file);
 printf("------------------------------------------------------\n");
@@ -107,41 +112,46 @@ printf("------------------------------------------------------\n");
 
 
 
- void searchPassenger(){
-      Passenger p;
-      char searchID[20];
-      int found = 0;
+void searchPassenger(){
+    Passenger p;
+    char searchID[20];
+    int found = 0;
       
-      FILE *file = fopen("passengers.txt","r");
+    FILE *file = fopen("passengers.txt","r");
       
-      if (file == NULL){
-          printf("\nNo passenger records found to search!\n");
-          return;
-      }
+    if (file == NULL){
+        printf("\nNo passenger records found to search!\n");
+        return;
+    }
  
-      printf("--------Search Passenger---------\n");
-      printf("Enter passengerID to search : ");
-      scanf("%s",searchID);
+    printf("--------Search Passenger---------\n");
+    printf("Enter passengerID to search : ");
+    scanf("%s",searchID);
       
-      while (fscanf(file, "%s %s %d %s", p.passengerID, p.name, &p.age, p.contactNumber) == 4){
+    while (fscanf(file, "%s %s %d %s", p.passengerID, p.name, &p.age, p.contactNumber) == 4){
       
-          if (strcmp(p.passengerID, searchID) == 0){
-              printf("\nPassenger Found Successfully!\n");
-              printf("-------------------------------\n");
-              printf("Passenger ID   : %s\n", p.passengerID);
-              printf("Name           : %s\n", p.name);
-              printf("Age            : %d\n", p.age);
-              printf("Contact Number : %s\n", p.contactNumber);
-              printf("-------------------------------\n");
-              found = 1;
-              break;
-          }
-      }
+        if (strcmp(p.passengerID, searchID) == 0){
+            printf("\nPassenger Found Successfully!\n");
+            printf("-------------------------------\n");
+            printf("Passenger ID   : %s\n", p.passengerID);
+            printf("Name           : %s\n", p.name);
+            printf("Age            : %d\n", p.age);
+            printf("Contact Number : %s\n", p.contactNumber);
+            printf("-------------------------------\n");
+            found = 1;
+            break;
+        }
+    }
  
  
- if (!found){
+if (!found){
     printf("\nPassenger with ID '%s' not found!\n",searchID);
- }
+}
  
- fclose(file);
- }
+fclose(file);
+}
+
+int passengerExists(const char *id)
+{
+    return findPassenger(id, NULL);
+}

@@ -17,13 +17,14 @@ void registerPassenger(void);
 void displayPassengers(void);
 void searchPassenger(void);
 void passengerMenu(void);
-void paymentadminMenu(void);
-void paymentcustomerMenu(void);
+int passengerExists(const char *id);
 
-void processPayment(void);
-void viewPaymentDetails(void);
-void cancelTicket(void);
-void viewCancellationDetails(void);
+void paymentadminMenu(void);
+void paymentcustomerMenu(const char *passengerID);
+void processPayment(const char *passengerID);
+void viewPaymentDetails(const char *passengerID);
+void cancelTicket(const char *passengerID);
+void viewCancellationDetails(const char *passengerID);
 
 
 static void clearInput(void)
@@ -231,6 +232,18 @@ void passengerMenu(void)
         return; 
     }
 
+    if (!passengerExists(passengerID))
+    {
+        printf("\nLogin Failed!\n");
+        printf("Passenger ID is not registered.\n");
+        printf("Please register first.\n");
+        return;
+    }
+
+    printf("\nPassenger Login Successful!\n");
+    printf("Welcome, %s!\n", passengerID);
+
+
     do {
         printf("\n========== PASSENGER MENU (%s) ==========\n", passengerID);
         printf("1. View Flights\n2. Make Reservation\n3. View My Reservations / Ticket\n4. Payment & Cancellation\n0. Logout\nChoice: ");
@@ -251,7 +264,7 @@ void passengerMenu(void)
                 reservationMenu(0, passengerID);
                 break;
             case 4: 
-                paymentcustomerMenu(); 
+                paymentcustomerMenu(passengerID); 
                 break;
             case 0: 
                 break;
