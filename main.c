@@ -3,24 +3,34 @@
 int adminLogin(void);
 void reportMenu(void);
 
-void passengerMenu(void)
-{
-    printf("\n\n");
-}
+void flightMenu(void);
+void loadFlights(void);
+void addFlight(void);
+void viewFlights(void);
+void searchFlight(void);
+void updateFlight(void);
+void deleteFlight(void);
 
-void flightMenu(void)
-{
-    printf("\n\n");
-}
+void reservationMenu(int isAdmin, const char *passengerID);
 
-void reservationMenu(void)
-{
-    printf("\n\n");
-}
+void registerPassenger(void);
+void displayPassengers(void);
+void searchPassenger(void);
+void passengerMenu(void);
+int passengerExists(const char *id);
 
-void paymentMenu(void)
+void paymentadminMenu(void);
+void paymentcustomerMenu(const char *passengerID);
+void processPayment(const char *passengerID);
+void viewPaymentDetails(const char *passengerID);
+void cancelTicket(const char *passengerID);
+void viewCancellationDetails(const char *passengerID);
+
+
+static void clearInput(void)
 {
-    printf("\n\n");
+    int ch;
+    while ((ch = getchar()) != '\n' && ch != EOF) { }
 }
 
 void adminMenu(void)
@@ -32,8 +42,8 @@ void adminMenu(void)
         printf("\n========== ADMIN MENU ==========\n");
         printf("1. Passenger Management\n");
         printf("2. Flight Management\n");
-        printf("3. View Reservations\n");
-        printf("4. Payment Records\n");
+        printf("3. Reservations Management\n");
+        printf("4. Payment Management\n");
         printf("5. Reports\n");
         printf("0. Logout\n");
         printf("Enter choice: ");
@@ -47,7 +57,29 @@ void adminMenu(void)
         switch (choice)
         {
             case 1:
-                passengerMenu();
+                {
+                int pChoice;
+                do {
+                    printf("\n--- PASSENGER MANAGEMENT ---\n1. Register Passenger\n2. Display Passengers\n3. Search Passenger\n0. Back\nChoice: ");
+                    if (scanf("%d", &pChoice) != 1) { clearInput(); pChoice = -1; }
+                    switch (pChoice) {
+                        case 1: 
+                            registerPassenger(); 
+                            break;
+                        case 2: 
+                            displayPassengers(); 
+                            break;
+                        case 3: 
+                            searchPassenger(); 
+                            break;
+                        case 0: 
+                            break;
+                        default: 
+                            printf("Invalid choice.\n");
+                    }
+                } while (pChoice != 0);
+                break;
+            }
                 break;
 
             case 2:
@@ -55,11 +87,11 @@ void adminMenu(void)
                 break;
 
             case 3:
-                reservationMenu();
+                reservationMenu(1, "Admin");
                 break;
 
             case 4:
-                paymentMenu();
+                paymentadminMenu();
                 break;
 
             case 5:
@@ -108,11 +140,11 @@ int main(void)
                 break;
 
             case 2:
-                printf("\n");
+                passengerMenu();
                 break;
 
             case 3:
-                printf("\n");
+                registerPassenger();
                 break;
 
             case 0:
@@ -128,3 +160,116 @@ int main(void)
     return 0;
 }
 
+void flightMenu(void)
+{
+    int choice;
+
+    loadFlights();
+
+    do {
+        printf("\n===============================\n");
+        printf(" AIR TICKETING SYSTEM\n");
+        printf(" FLIGHT MANAGEMENT MODULE\n");
+        printf("===============================\n");
+        printf("1. Add Flight\n");
+        printf("2. View All Flights\n");
+        printf("3. Search Flight\n");
+        printf("4. Update Flight\n");
+        printf("5. Delete Flight\n");
+        printf("0. Exit\n");
+        printf("Enter your choice: ");
+
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input. Enter a number.\n");
+
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+            }
+
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                addFlight();
+                break;
+
+            case 2:
+                viewFlights();
+                break;
+
+            case 3:
+                searchFlight();
+                break;
+
+            case 4:
+                updateFlight();
+                break;
+
+            case 5:
+                deleteFlight();
+                break;
+
+            case 0:
+                break;
+
+            default:
+                printf("Invalid choice. Try again.\n");
+        }
+
+    } while (choice != 0);
+
+}
+
+void passengerMenu(void)
+{
+    char passengerID[20];
+    int choice;
+    printf("\nEnter your Passenger ID: ");
+    if (scanf("%19s", passengerID) != 1) 
+    { 
+        clearInput(); 
+        return; 
+    }
+
+    if (!passengerExists(passengerID))
+    {
+        printf("\nLogin Failed!\n");
+        printf("Passenger ID is not registered.\n");
+        printf("Please register first.\n");
+        return;
+    }
+
+    printf("\nPassenger Login Successful!\n");
+    printf("Welcome, %s!\n", passengerID);
+
+
+    do {
+        printf("\n========== PASSENGER MENU (%s) ==========\n", passengerID);
+        printf("1. View Flights\n2. Make Reservation\n3. View My Reservations / Ticket\n4. Payment & Cancellation\n0. Logout\nChoice: ");
+        if (scanf("%d", &choice) != 1) 
+        { 
+            clearInput(); 
+            continue; 
+        }
+        switch (choice) {
+            case 1: 
+                loadFlights(); 
+                viewFlights(); 
+                break;
+            case 2: 
+                reservationMenu(0, passengerID);
+                break;
+            case 3: 
+                reservationMenu(0, passengerID);
+                break;
+            case 4: 
+                paymentcustomerMenu(passengerID); 
+                break;
+            case 0: 
+                break;
+            default: 
+                printf("Invalid choice.\n");
+        }
+    } while (choice != 0);
+}
