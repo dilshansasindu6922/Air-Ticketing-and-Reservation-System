@@ -28,21 +28,33 @@ typedef struct {
     double price;
 } FlightInfo;
 
+
 static int passengerExistsLocal(const char *id)
 {
-    FILE *fp = fopen(PASS_FILE, "r"); 
-    
-    char pid[20], name[50], contact[20]; 
-    int age;
+    FILE *fp = fopen(PASS_FILE, "r");
 
-    if (!fp) 
-      return 0;
-    while (fscanf(fp, "%19s %49s %d %19s", pid, name, &age, contact) == 4)
-        if (strcmp(pid, id) == 0) { fclose(fp); return 1; }
-    
-    fclose(fp); 
+    char line[150];
+    char pid[20];
+
+    if (fp == NULL)
+        return 0;
+
+    while (fgets(line, sizeof(line), fp))
+    {
+        if (sscanf(line, "%19[^|]|", pid) == 1)
+        {
+            if (strcmp(pid, id) == 0)
+            {
+                fclose(fp);
+                return 1;
+            }
+        }
+    }
+
+    fclose(fp);
     return 0;
 }
+
 
 static int readFlight(int id, FlightInfo *f)
 {

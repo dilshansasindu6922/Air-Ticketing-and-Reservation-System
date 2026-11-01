@@ -1,2 +1,1 @@
-1002|Emirates|bcd|japan|2026-10-22|10:50|150|100000.00
-1001|asdfggfj|edsdsg|dfsdfd|5255|10|222|2560025.00
+2001|Emirates|dubai|sri lanka|2005|12|250|200000.00

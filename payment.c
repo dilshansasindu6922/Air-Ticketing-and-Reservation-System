@@ -41,7 +41,7 @@ int hasSuccessfulPayment(int bookingID);
 
 void paymentcustomerMenu(const char *passengerID);
 void processPayment(const char *passengerID);
-void viewPaymentDetails(void);
+void viewPaymentDetails(const char *passengerID);
 void requestCancellation(const char *passengerID);
 void viewMyCancellationStatus(const char *passengerID);
 
@@ -276,11 +276,9 @@ void processPayment(const char *passengerID) {
     printf("Payment ID  : %d\n", p.paymentID);
     printf("Amount Paid : Rs. %.2f\n", p.amount);
     printf("Booking Status: CONFIRMED\n");
-    printf("You can now choose 'Issue / View Ticket' in the Reservation Menu.\n");
-    printf("Note: This program simulates payment; it does not charge a real card or bank account.\n");
 }
 
-void viewPaymentDetails(void) {
+void viewPaymentDetails(const char *passengerID) {
     FILE *fp = fopen(PAYMENT_FILE, "r");
     if (fp == NULL) {
         printf("No payment records found.\n");
@@ -601,7 +599,39 @@ void manageCancellationRequests(void) {
 }
 
 void viewAllPayments(void) {
-    viewPaymentDetails();
+    FILE *fp = fopen(PAYMENT_FILE, "r");
+
+    if (fp == NULL) {
+        printf("No payment records found.\n");
+        return;
+    }
+
+    Payment p;
+    int found = 0;
+
+    printf("\n--- All Payment Records ---\n");
+
+    while (fscanf(fp, "%d|%d|%lf|%19[^|]|%19[^\n]",
+                  &p.paymentID,
+                  &p.bookingID,
+                  &p.amount,
+                  p.method,
+                  p.status) == 5)
+    {
+        printf("\nPayment ID : %d\n", p.paymentID);
+        printf("Booking ID : %d\n", p.bookingID);
+        printf("Amount     : Rs. %.2f\n", p.amount);
+        printf("Method     : %s\n", p.method);
+        printf("Status     : %s\n", p.status);
+
+        found = 1;
+    }
+
+    if (!found) {
+        printf("No payment records available.\n");
+    }
+
+    fclose(fp);
 }
 
 void viewAllCancellations(void) {
@@ -666,7 +696,7 @@ void paymentcustomerMenu(const char *passengerID) {
 
         switch (choice) {
             case 1: processPayment(passengerID); break;
-            case 2: viewPaymentDetails(); break;
+            case 2: viewPaymentDetails(passengerID); break;
             case 3: requestCancellation(passengerID); break;
             case 4: viewMyCancellationStatus(passengerID); break;
             case 0: printf("Returning to Passenger Menu...\n"); break;
